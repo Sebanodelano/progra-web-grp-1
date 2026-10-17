@@ -3,10 +3,10 @@ import { Link, useNavigate } from 'react-router'
 import AuthorNavigation from '../../../core/ui/AuthorNavigation/AuthorNavigation.jsx'
 import Footer from '../../../core/ui/Footer/Footer.jsx'
 import Header from '../../../core/ui/Header/Header.jsx'
-import {
-  sessionRepository,
-} from '../../../core/utils/repositories.js'
+import { sessionRepository } from '../../../core/utils/repositories.js'
 import { getParticipantAccounts } from '../../../core/utils/accounts.js'
+import useConference from '../../../core/utils/useConference.js'
+import { getReceptionNotice, receptionIsOpen } from '../../../core/utils/reception.js'
 import RegistrationNotice from '../components/RegistrationNotice/RegistrationNotice.jsx'
 import styles from './AuthorHomePage.module.css'
 
@@ -26,8 +26,12 @@ const steps = [
 ]
 
 function getRoleCopy(role) {
-  if (role === 'reviewer') return { label: 'Revisor', title: 'revisor' }
-  if (role === 'both') return { label: 'Autor y revisor', title: 'autor y revisor' }
+  if (role === 'reviewer') {
+    return { label: 'Revisor', title: 'revisor' }
+  }
+  if (role === 'both') {
+    return { label: 'Autor y revisor', title: 'autor y revisor' }
+  }
   return { label: 'Autor', title: 'autor' }
 }
 
@@ -37,6 +41,8 @@ function getInitials(participant) {
 
 function AuthorHomePage() {
   const navigate = useNavigate()
+  const conference = useConference()
+  const receptionOpen = receptionIsOpen(conference.status, conference.schedule)
   const [participant, setParticipant] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -51,9 +57,13 @@ function AuthorHomePage() {
           getParticipantAccounts(),
         ])
 
-        if (!active) return
+        if (!active) {
+          return
+        }
 
-        const storedParticipant = accounts.find(account => account.userId === session?.userId)
+        const storedParticipant = accounts.find(
+          account => account.userId === session?.userId
+        )
         if (!session || !storedParticipant) {
           navigate('/iniciar-sesion', { replace: true })
           return
@@ -66,9 +76,13 @@ function AuthorHomePage() {
 
         setParticipant(storedParticipant)
       } catch (cause) {
-        if (active) setError(cause.message)
+        if (active) {
+          setError(cause.message)
+        }
       } finally {
-        if (active) setLoading(false)
+        if (active) {
+          setLoading(false)
+        }
       }
     }
 
@@ -78,7 +92,7 @@ function AuthorHomePage() {
     }
   }, [navigate])
 
-  if (loading) {
+  if (loading || conference.loading) {
     return (
       <div className={styles.page}>
         <Header estado="Recepción abierta" />
@@ -90,12 +104,12 @@ function AuthorHomePage() {
     )
   }
 
-  if (error) {
+  if (error || conference.error) {
     return (
       <div className={styles.page}>
         <Header estado="Recepción abierta" />
         <main className={styles.statusMain}>
-          <p role="alert">No se pudo cargar su cuenta: {error}</p>
+          <p role="alert">No se pudo cargar su cuenta: {error || conference.error}</p>
         </main>
         <Footer />
       </div>
@@ -123,13 +137,22 @@ function AuthorHomePage() {
               {participant.name}, su cuenta de {roleCopy.title} está activa
             </h1>
             <p>
-              Ya puede registrar sus trabajos. La recepción cierra el 30/09/2026 a las
-              23:59; después de esa fecha los envíos quedan en modo lectura.
+              {receptionOpen
+                ? 'Ya puede registrar sus trabajos.'
+                : 'La recepción está cerrada.'}{' '}
+              {getReceptionNotice(conference.status, conference.schedule)}
             </p>
             <div className={styles.actions}>
-              {participant.role === 'both' && <Link className={styles.secondaryAction} to="/mi-cuenta">Ir a mi cuenta de revisor</Link>}
-              <Link className={styles.primaryAction} to="/autor/nuevo-trabajo">
-                Registrar mi primer trabajo
+              {participant.role === 'both' && (
+                <Link className={styles.secondaryAction} to="/mi-cuenta">
+                  Ir a mi cuenta de revisor
+                </Link>
+              )}
+              <Link
+                className={styles.primaryAction}
+                to={receptionOpen ? '/autor/nuevo-trabajo' : '/autor/trabajos'}
+              >
+                {receptionOpen ? 'Registrar mi primer trabajo' : 'Consultar mis trabajos'}
               </Link>
               <Link className={styles.secondaryAction} to="/autor/cuenta">
                 Completar mi perfil
@@ -138,7 +161,7 @@ function AuthorHomePage() {
           </section>
 
           <section aria-label="Pasos para enviar un trabajo" className={styles.stepGrid}>
-            {steps.map((step) => (
+            {steps.map(step => (
               <article className={styles.stepCard} key={step.title}>
                 <h2>{step.title}</h2>
                 <p>{step.description}</p>

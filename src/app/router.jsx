@@ -1,23 +1,42 @@
-import { createBrowserRouter } from 'react-router'
-import ExamplePage from '../ejemplo/ExamplePage.jsx'
-import AuthorHomePage from '../features/history-1/pages/AuthorHomePage.jsx'
-import History1Page from '../features/history-1/pages/History1Page.jsx'
-import CongressRulesPage from '../features/history-1/pages/CongressRulesPage.jsx'
-import LoginPage from '../features/history-1/pages/LoginPage.jsx'
-import PasswordRecoveryPage from '../features/history-1/pages/PasswordRecoveryPage.jsx'
-import RegistrationPage from '../features/history-1/pages/RegistrationPage.jsx'
-import AccountPage from '../features/history-1/pages/AccountPage.jsx'
-import NotFoundPage from '../features/history-1/pages/NotFoundPage.jsx'
-import RoleAccess from '../features/history-1/components/RoleAccess/RoleAccess.jsx'
-import RoleAccessError from '../features/history-1/components/RoleAccess/RoleAccessError.jsx'
+import {
+  MyPresentationPage,
+  PublicProgramPage,
+  SessionAssignmentPage,
+  SessionBuilderPage,
+  MetricsPage,
+  ReviewerCompliancePage,
+  UsersPage,
+  ReceivedWorksPage,
+  ReviewersListPage,
+  ReviewsTrackingPage,
+  InformationPage,
+  ExamplePage,
+  AuthorHomePage,
+  History1Page,
+  CongressRulesPage,
+  LoginPage,
+  PasswordRecoveryPage,
+  RegistrationPage,
+  AccountPage,
+  NotFoundPage,
+  RoleAccess,
+  RoleAccessError,
+  EditionSettingsPage,
+  ThematicAxesPage,
+  WorkTypesPage,
+  SchedulePage,
+  CriteriaPage,
+  NewWorkPage,
+  CoauthorsPage,
+  MyWorksPage,
+  WorkDetailPage,
+  ReadOnlyWorkPage,
+  ReviewerInboxPage,
+  EvaluationPage,
+  ConsolidatedReviewPage,
+} from './routePages.js'
+import { createBrowserRouter, redirect } from 'react-router'
 import { createAccessLoader } from './access.js'
-import EditionSettingsPage from '../features/history-2/pages/EditionSettingsPage.jsx'
-import ThematicAxesPage from '../features/history-2/pages/ThematicAxesPage.jsx'
-import WorkTypesPage from '../features/history-2/pages/WorkTypesPage.jsx'
-import SchedulePage from '../features/history-2/pages/SchedulePage.jsx'
-import CriteriaPage from '../features/history-2/pages/CriteriaPage.jsx'
-import ReviewerInboxPage from '../features/history-5/pages/ReviewerInboxPage.jsx'
-import EvaluationPage from '../features/history-5/pages/EvaluationPage.jsx'
 
 const router = createBrowserRouter([
   {
@@ -50,33 +69,29 @@ const router = createBrowserRouter([
   },
   {
     element: <RoleAccess />,
-    loader: createAccessLoader(['author', 'both'], 'El área del autor es exclusiva de participantes con rol autor.'),
+    loader: createAccessLoader(
+      ['author', 'both'],
+      'El área del autor es exclusiva de participantes con rol autor.'
+    ),
     errorElement: <RoleAccessError />,
-    children: [{ path: '/autor', element: <AuthorHomePage /> }],
-  },
-  {
-    path: '/configuracion',
-    element: <EditionSettingsPage />,
-  },
-  {
-    path: '/configuracion/ejes-tematicos',
-    element: <ThematicAxesPage />,
-  },
-  {
-    path: '/configuracion/tipos-trabajo',
-    element: <WorkTypesPage />,
-  },
-  {
-    path: '/configuracion/fechas',
-    element: <SchedulePage />,
-  },
-  {
-    path: '/configuracion/criterios',
-    element: <CriteriaPage />,
+    children: [
+      { path: '/autor/presentacion', element: <MyPresentationPage /> },
+      { path: '/autor', element: <AuthorHomePage /> },
+      { path: '/autor/nuevo-trabajo', element: <NewWorkPage /> },
+      { path: '/autor/nuevo-trabajo/coautores', element: <CoauthorsPage /> },
+      { path: '/autor/trabajos', element: <MyWorksPage /> },
+      { path: '/autor/trabajos/:codigo', element: <WorkDetailPage /> },
+      { path: '/autor/trabajos/:codigo/lectura', element: <ReadOnlyWorkPage /> },
+      { path: '/nuevo-trabajo', element: <NewWorkPage /> },
+      { path: '/nuevo-trabajo/coautores', element: <CoauthorsPage /> },
+    ],
   },
   {
     element: <RoleAccess />,
-    loader: createAccessLoader(['author', 'reviewer', 'both'], 'Esta sección requiere una cuenta de participante.'),
+    loader: createAccessLoader(
+      ['author', 'reviewer', 'both'],
+      'Esta sección requiere una cuenta de participante.'
+    ),
     errorElement: <RoleAccessError />,
     children: [
       { path: '/mi-cuenta', element: <AccountPage /> },
@@ -85,20 +100,111 @@ const router = createBrowserRouter([
   },
   {
     element: <RoleAccess />,
-    loader: createAccessLoader(['reviewer', 'both'], 'La bandeja de revisión es exclusiva del rol revisor.'),
+    loader: createAccessLoader(
+      ['reviewer', 'both'],
+      'La bandeja de revisión es exclusiva del rol revisor.'
+    ),
     errorElement: <RoleAccessError />,
     children: [{ path: '/bandeja-revision', element: <ReviewerInboxPage /> }],
   },
   {
     element: <RoleAccess />,
-    loader: createAccessLoader(['reviewer', 'both'], 'La evaluación de trabajos es exclusiva del rol revisor.', true),
+    loader: createAccessLoader(
+      ['reviewer', 'both'],
+      'La evaluación de trabajos es exclusiva del rol revisor.',
+      true
+    ),
     errorElement: <RoleAccessError />,
     children: [{ path: '/evaluacion/:codigo', element: <EvaluationPage /> }],
   },
+  {
+    element: <RoleAccess />,
+    loader: createAccessLoader(
+      ['committee'],
+      'Esta sección es exclusiva del comité organizador.'
+    ),
+    errorElement: <RoleAccessError />,
+    children: [
+      {
+        path: '/configuracion',
+        element: <EditionSettingsPage />,
+      },
+      {
+        path: '/configuracion/ejes-tematicos',
+        element: <ThematicAxesPage />,
+      },
+      {
+        path: '/configuracion/tipos-trabajo',
+        element: <WorkTypesPage />,
+      },
+      {
+        path: '/configuracion/fechas',
+        element: <SchedulePage />,
+      },
+      {
+        path: '/configuracion/criterios',
+        element: <CriteriaPage />,
+      },
+      {
+        path: '/trabajos-recibidos/:codigo/consolidado',
+        element: <ConsolidatedReviewPage />,
+      },
+      {
+        path: '/trabajos-recibidos/:codigo/decision',
+        element: <ConsolidatedReviewPage mostrarDecision />,
+      },
+      {
+        path: '/trabajos-recibidos',
+        element: <ReceivedWorksPage />,
+      },
+      {
+        path: '/revisores',
+        element: <ReviewersListPage />,
+      },
+      {
+        path: '/seguimiento',
+        element: <ReviewsTrackingPage />,
+      },
+      {
+        path: '/tablero',
+        element: <MetricsPage />,
+      },
+      {
+        path: '/tablero/cumplimiento',
+        element: <ReviewerCompliancePage />,
+      },
+      {
+        path: '/usuarios',
+        element: <UsersPage />,
+      },
+      {
+        path: '/programa',
+        element: <SessionBuilderPage />,
+      },
+      { path: '/programa/asignar-trabajos', element: <SessionAssignmentPage /> },
+    ],
+  },
+  { path: '/programa-publico', element: <PublicProgramPage /> },
+  {
+    path: '/mi-presentacion',
+    loader: () => {
+      throw redirect('/autor/presentacion')
+    },
+  },
+  ...[
+    'guia-autores',
+    'guia-revisores',
+    'preguntas-frecuentes',
+    'terminos',
+    'privacidad',
+  ].map(section => ({
+    path: `/${section}`,
+    element: <InformationPage seccion={section} />,
+  })),
   {
     path: '*',
     element: <NotFoundPage />,
   },
 ])
 
-export default router;
+export default router

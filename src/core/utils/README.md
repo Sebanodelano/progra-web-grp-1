@@ -6,8 +6,10 @@ navegador; el contrato asíncrono permite sustituirlo por una API.
 
 ## Organización
 
-- `persistence/localStorageAdapter.js`: acceso al navegador y serialización JSON.
-- `persistence/createStateRepository.js`: claves, versiones y validación.
+- `persistence/createStateRepository.js`: lectura, escritura y eliminación de JSON
+  en el navegador, con una clave y un validador por estado.
+- `persistence/createSessionRepository.js`: elección entre sesión de pestaña y
+  sesión persistente para «Recordarme».
 - `states/`: valores iniciales y validadores de cada estado persistente.
 - `repositories.js`: composición y exportación de los repositorios disponibles.
 
@@ -15,11 +17,11 @@ navegador; el contrato asíncrono permite sustituirlo por una API.
 
 Todos los métodos devuelven una promesa:
 
-| Método | Resultado |
-| --- | --- |
-| `get()` | Datos guardados o una copia del valor inicial si no existen. |
+| Método        | Resultado                                                    |
+| ------------- | ------------------------------------------------------------ |
+| `get()`       | Datos guardados o una copia del valor inicial si no existen. |
 | `save(value)` | Datos guardados después de validar y completar la escritura. |
-| `remove()` | Elimina únicamente los datos de ese repositorio. |
+| `remove()`    | Elimina únicamente los datos de ese repositorio.             |
 
 Las operaciones fallidas rechazan la promesa. La pantalla debe mostrar el error
 y anunciar éxito únicamente después de `await save(...)`. Durante la carga o
@@ -31,9 +33,10 @@ guardan con «Guardar cambios» y el estado con «Cambiar estado de la edición�
 Cambiar el estado no guarda las ediciones pendientes del formulario.
 
 La configuración cuenta con repositorios de ejes, tipos de trabajo, cronograma
-y criterios. Ejes y tipos se guardan al confirmar su modal. Fechas y criterios
-se guardan con su botón principal; las modificaciones pendientes de criterios
-no se guardan al cancelar un modal o abandonar la pantalla. Una lista guardada
+y criterios. Ejes, tipos y criterios se guardan al confirmar su modal; sus
+eliminaciones también se guardan inmediatamente después de confirmar. Fechas
+se guardan con su botón principal. Cancelar un modal no modifica los datos
+guardados. Una lista guardada
 vacía se conserva como tal y no se reemplaza por los datos de ejemplo.
 
 `useStoredState` evita repetir la carga y el guardado en cada pantalla. Devuelve
@@ -44,11 +47,10 @@ El cronograma usa cadenas `AAAA-MM-DDTHH:mm` en horario de Lima y exige recepci�
 anterior a revisión y revisión anterior a publicación. Los criterios pueden
 guardarse con una suma pendiente; cerrar la recepción y pasar a «En revisión»
 exige una suma de 100. El cierre requiere aceptar la casilla y escribir `CERRAR`.
-Por ahora se guarda el estado: los efectos sobre envíos se conectarán cuando
-exista esa historia.
+El estado y el cronograma gobiernan el alta y la edición de los trabajos del autor. La comprobación compartida de `reception.js` usa el horario de Lima. Si el estado guardado es «Recepción abierta» pero el plazo venció, el encabezado y las pantallas muestran «Recepción cerrada» e indican la fecha vencida. Esto no cambia automáticamente la edición a «En revisión»: esa transición sigue requiriendo la confirmación del comité.
 
 Las evaluaciones se guardan en `reviewsRepository`, identificadas por usuario
-y código de trabajo. Sin login se utiliza el revisor `demo-reviewer`. El borrador
+y código de trabajo. La ruta exige cuenta y asignación vigentes. El borrador
 admite campos incompletos; el envío requiere puntajes enteros de 0 a 20,
 comentarios obligatorios, recomendación y pesos que sumen 100. Una evaluación
 enviada se recupera en modo lectura y actualiza la bandeja. Se conservan los
@@ -98,9 +100,10 @@ cuenta, registro y login ejecutan esta lectura, preservando la ficha anterior.
 correos duplicados y guarda una credencial derivada por cuenta.
 `authenticateParticipant()` requiere tanto ficha como credencial coincidente;
 `startAccountSession()` guarda la ficha activa y la identidad después de verificar.
-Las fichas antiguas sin credencial deben establecerla mediante recuperación.
+Las cuentas de ejemplo usan su credencial inicial de demostración; las demás fichas antiguas sin credencial deben establecerla mediante recuperación.
 Solo se navega al terminar las escrituras: autor a `/autor`, revisor a
 `/mi-cuenta` (Historia 1.5), ambos a `/autor` con enlace a la cuenta de revisor.
+
 ### Recordarme en este equipo
 
 `startAccountSession(participant, remember)` inicia la identidad mediante
@@ -204,12 +207,12 @@ Historia 6, cuya pantalla aún no está registrada en este router.
 
 ## Contraseñas locales de demostración
 
-La recuperación actualiza `demoCredentialsRepository` (`congress:demo-credentials`)
-por correo normalizado. Se guardan una sal aleatoria y una derivación
-PBKDF2-SHA-256 de 210 000 iteraciones, sin la contraseña original. Este estado
+La recuperación actualiza `demoCredentialsRepository` (`congress:credentials`)
+por correo normalizado. Se guarda la contraseña tal como se escribió
+(`{ email, password }`), porque es solo una demostración local: este estado
 está separado de la ficha y de la sesión, y no constituye autenticación real.
-El inicio de sesión verifica esta derivación contra la ficha del mismo correo
-en la colección de participantes y recupera su identidad y rol. Una derivación
+El inicio de sesión compara la contraseña con la ficha del mismo correo en la
+colección de participantes y recupera su identidad y rol. Una credencial
 aislada, sin ficha registrada, no inicia una sesión. Registro, recuperación y
 cambio de contraseña utilizan el mismo repositorio de credenciales.
 
@@ -227,29 +230,31 @@ recuperación y la verificación al backend.
 3. Importar ese repositorio en la feature y usar `await get/save/remove`.
 4. Manejar carga, errores y confirmación de guardado en la pantalla.
 
-Ejemplo de registro, reutilizando el adaptador común:
+Ejemplo de registro:
 
 ```js
 export const preferencesRepository = createStateRepository({
-  adapter,
   name: 'preferences',
   defaultValue: { theme: 'light' },
-  validate: (value) => ['light', 'dark'].includes(value?.theme),
+  validate: value => ['light', 'dark'].includes(value?.theme),
 })
 ```
 
-Solo se admiten datos serializables como JSON: objetos simples, arreglos,
-cadenas, números finitos, booleanos y `null`. Representar fechas como cadenas
-ISO; no guardar funciones, archivos, `Date`, `Map` ni referencias circulares.
-El validador de cada estado debe comprobar su estructura completa.
+Guarda objetos, arreglos, cadenas, números, booleanos o `null`. Representa las
+fechas como cadenas; no guardes funciones, archivos ni referencias circulares.
+El validador de cada estado comprueba los datos al leer y antes de guardar.
 
-Las claves usan el prefijo `congress:` y guardan `{ version: 1, data: ... }`.
-No usar `localStorage.clear()`, porque eliminaría datos ajenos. Si el JSON es
-inválido, falla la validación, cambia la versión o el navegador bloquea el
-almacenamiento, se informa el error sin borrar automáticamente los datos. Un
-guardado explícito válido puede reemplazar datos incompatibles. Una nueva
-versión del formato requiere una migración explícita o un restablecimiento
-deliberado con `remove()`; cambiar el número por sí solo no migra los datos.
+La implementación usa directamente `getItem`, `setItem`, `removeItem`,
+`JSON.parse` y `JSON.stringify` en una única función compartida. No necesita
+adaptadores ni validación JSON recursiva. Por defecto usa `localStorage`;
+la opción `storage: 'sessionStorage'` se reserva para la sesión de pestaña.
+El acceso a `window` ocurre al llamar los métodos, no al importar el módulo.
+
+Las claves conservan el prefijo `congress:` y el formato `{ version: 1, data }`
+para recuperar los datos existentes. No hay un sistema configurable de versiones:
+si en el futuro cambia el formato, habrá que migrar los datos explícitamente.
+Un JSON inválido, un formato incompatible o un bloqueo del navegador producen
+un error sin borrar los datos. `remove()` elimina solo la clave del repositorio.
 
 ## Migración a SQL mediante una API
 
@@ -270,3 +275,43 @@ Ejecutar `npm run lint`, `npm run build` y `git diff --check`.
 Verificar de forma puntual el guardado, la recuperación después de recargar y
 la eliminación de datos. No conservar archivos de tests ni infraestructura
 de pruebas en el repositorio.
+
+## Cuenta predeterminada del comité organizador
+
+La aplicación incluye `admin@aloe.ulima.edu.pe`, con contraseña inicial
+`Admin1234` y rol `committee` («Comité organizador»). Al iniciar sesión abre
+`/configuracion`, desde donde se accede a las pantallas de Historia 2.
+`states/defaultCommitteeState.js` contiene la ficha y la credencial. La
+contraseña no se guarda en la sesión.
+
+`getParticipantAccounts()` incorpora la ficha reservada a las cuentas existentes
+sin eliminar los demás participantes. El registro público solo admite autor,
+revisor o ambos y no permite registrar este correo nuevamente. El login usa la
+credencial incluida cuando no hay una credencial guardada para ese correo;
+una contraseña cambiada mediante recuperación tiene prioridad. Al eliminar
+las credenciales locales vuelve a estar disponible la contraseña inicial.
+Cerrar sesión elimina solo la identidad activa, conservando las demás cuentas.
+Esta cuenta forma parte de la demostración local; los permisos reales
+corresponderán al backend.
+
+## Integración de las historias
+
+`worksRepository` es el registro común de borradores y envíos. Conserva los campos de asignación existentes y admite detalles del autor, propietario, coautores, documento y versión final. `submissions.js` transforma el registro para las vistas del autor sin mantener otra lista en memoria. La edición exige recepción abierta y fecha vigente.
+
+`assignments.js` relaciona el revisor de una cuenta con los identificadores antiguos y conserva claves legadas de evaluaciones. Bandeja, seguimiento y consolidado consultan esas asignaciones y las evaluaciones enviadas. Los borradores no cuentan como entregados.
+
+`decisionsRepository` (`congress:decisions`) conserva borradores y publicaciones por código de trabajo. `programRepository` (`congress:program`) conserva sesiones, asignaciones y orden; publicar guarda una instantánea de la programación que consulta el público. `remindersRepository` registra solicitudes locales de recordatorio. No envía correo real.
+
+El directorio combina fichas de participantes con los datos administrativos de Usuarios. Sus cambios se aplican a la cuenta correspondiente; el login consulta el bloqueo. Un revisor bloqueado conserva entregas pero deja de ser responsable de asignaciones pendientes.
+
+Las semillas son datos iniciales de la base local y se escriben en la primera lectura. Una colección guardada vacía se conserva. Las sesiones sin identidad no se escriben como registros nulos. No se borran ni sustituyen datos incompatibles.
+
+## Integración de las historias
+
+`useConference` carga configuración, trabajos, revisores, evaluaciones, decisiones y programa mediante sus repositorios. Los borradores y envíos comparten `worksRepository`; el comité, el autor y el revisor consultan esos mismos códigos. `decisionsRepository` conserva borradores y decisiones publicadas. `programRepository` guarda sesiones, asignaciones y la instantánea pública; editar un borrador no modifica la publicación anterior.
+
+`directoryRepository` une participantes y fichas de gestión, sincroniza cambios de correo con las credenciales derivadas y las referencias de trabajos, y aplica el bloqueo de cuentas. Se conservan las evaluaciones entregadas y se liberan las pendientes del revisor bloqueado. La actividad del tablero se deriva de los registros compartidos.
+
+Los valores iniciales se materializan en la primera lectura de cada repositorio. `remove()` elimina solo su clave; la lectura posterior vuelve a proporcionar su valor inicial. Un valor vacío guardado continúa vacío. Un formato incompatible produce un error y conserva el contenido original.
+
+Los repositorios locales ofrecen además `subscribe(listener)` para que componentes simultáneos, como el encabezado y Configuración, reflejen el mismo guardado. `useStoredState` libera esta suscripción al desmontarse. Esta notificación no cambia el contrato asíncrono de lectura y escritura.

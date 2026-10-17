@@ -1,26 +1,28 @@
 import { Link } from 'react-router'
 import styles from './HeroSection.module.css'
 
-function HeroSection({ rol }) {
-  const action = rol === 'reviewer'
-    ? { to: '/mi-cuenta', label: 'Ir a mi cuenta' }
-    : rol === 'author' || rol === 'both'
-      ? { to: '/autor', label: 'Ir a mi área de autor' }
-      : { to: '/iniciar-sesion', label: 'Enviar mi trabajo' }
+const authorAction = { to: '/autor', label: 'Ir a mi área de autor' }
+
+const actionsByRole = {
+  committee: { to: '/configuracion', label: 'Ir a la configuración del congreso' },
+  reviewer: { to: '/mi-cuenta', label: 'Ir a mi cuenta' },
+  author: authorAction,
+  both: authorAction,
+  guest: { to: '/iniciar-sesion', label: 'Enviar mi trabajo' },
+}
+
+function HeroSection({ rol, edicion }) {
+  const action = actionsByRole[rol] ?? actionsByRole.guest
 
   return (
     <section className={styles.hero}>
       <div className={styles.content}>
         <div className={styles.text}>
           <p className={styles.eyebrow}>
-            CONVOCATORIA ABIERTA · LIMA, 12 Y 13 DE NOVIEMBRE DE 2026
+            CONGRESO ACADÉMICO · LIMA · EDICIÓN {edicion?.editionYear}
           </p>
-          <h1>VIII Congreso Académico Estudiantil</h1>
-          <p className={styles.description}>
-            Presenta tu investigación ante el comité y la comunidad universitaria.
-            Recibimos artículos completos, resúmenes extendidos, pósteres y casos
-            de estudio en seis ejes temáticos.
-          </p>
+          <h1>{edicion?.editionName ?? 'VIII Congreso Académico Estudiantil'}</h1>
+          <p className={styles.description}>{edicion?.editionDescription}</p>
         </div>
 
         <div className={styles.actions}>
